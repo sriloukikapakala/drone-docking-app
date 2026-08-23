@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Cpu, LayoutDashboard, Radio, Anchor, Settings, Power, 
-  Search, Sun, Moon, Bell, BatteryCharging, Zap, Compass, 
+  Search, Sun, Moon, BatteryCharging, Zap, Compass, 
   Wind, MapPin, Camera, Crosshair, CheckCircle, AlertTriangle, 
   Target, ShieldCheck, Mail, Lock, Plus, Trash2, Navigation, User, Sliders
 } from 'lucide-react';
@@ -48,9 +48,9 @@ export default function App() {
 
   // Dynamic Telemetry Data
   const [drones, setDrones] = useState([
-    { id: 'DRONE-AI-101', name: 'AeroHawk Alpha', category: 'Surveillance', status: 'In-Flight', battery: 18, speed: 38, lat: 17.3850, lng: 78.4867, dockId: 'DOCK-HYD-01' },
-    { id: 'DRONE-AI-102', name: 'SkyCargo Beta', category: 'Delivery', status: 'Charging', battery: 92, speed: 0, lat: 17.3890, lng: 78.4890, dockId: 'DOCK-HYD-01' },
-    { id: 'DRONE-AI-103', name: 'AeroInspector X', category: 'Inspection', status: 'Docked', battery: 100, speed: 0, lat: 17.3910, lng: 78.4821, dockId: 'DOCK-HYD-02' }
+    { id: 'DRONE-AI-101', name: 'AeroHawk Alpha', category: 'Surveillance', status: 'In-Flight', battery: 85, speed: 38, lat: 17.3850, lng: 78.4867, targetLat: 17.4000, targetLng: 78.5000, dockId: 'DOCK-HYD-01' },
+    { id: 'DRONE-AI-102', name: 'SkyCargo Beta', category: 'Delivery', status: 'Charging', battery: 92, speed: 0, lat: 17.3890, lng: 78.4890, targetLat: 17.3890, targetLng: 78.4890, dockId: 'DOCK-HYD-01' },
+    { id: 'DRONE-AI-103', name: 'AeroInspector X', category: 'Inspection', status: 'Docked', battery: 100, speed: 0, lat: 17.3910, lng: 78.4821, targetLat: 17.3910, targetLng: 78.4821, dockId: 'DOCK-HYD-02' }
   ]);
 
   const [docks, setDocks] = useState([
@@ -64,60 +64,70 @@ export default function App() {
   // Modals
   const [showAddDroneModal, setShowAddDroneModal] = useState(false);
   const [showAddDockModal, setShowAddDockModal] = useState(false);
-  const [newDrone, setNewDrone] = useState({ id: '', name: '', category: 'Surveillance', status: 'In-Flight', battery: 100, speed: 0, lat: 17.3850, lng: 78.4867, dockId: 'DOCK-HYD-01' });
+  const [newDrone, setNewDrone] = useState({ id: '', name: '', category: 'Surveillance', status: 'In-Flight', battery: 100, speed: 40, lat: 17.3850, lng: 78.4867, targetLat: 17.4100, targetLng: 78.5100, dockId: 'DOCK-HYD-01' });
   const [newDock, setNewDock] = useState({ id: '', name: '', lat: 17.3850, lng: 78.4867, status: 'Operational', powerSupply: 'Solar Fast Charge', capacity: '0/2' });
 
-  // 🔔 1. BROWSER PUSH NOTIFICATIONS INITIALIZATION
+  // 🛰️ LIVE SIMULATED GPS TRACKING ENGINE
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDrones(prevDrones =>
+        prevDrones.map(drone => {
+          if (drone.status !== 'In-Flight') return drone;
+
+          // Incrementally move towards target coordinates
+          const latDiff = (drone.targetLat - drone.lat) * 0.05;
+          const lngDiff = (drone.targetLng - drone.lng) * 0.05;
+
+          const newLat = parseFloat((drone.lat + latDiff).toFixed(6));
+          const newLng = parseFloat((drone.lng + lngDiff).toFixed(6));
+
+          // Gradually reduce battery while in-flight
+          const newBattery = drone.battery > 5 ? drone.battery - 0.2 : drone.battery;
+
+          return {
+            ...drone,
+            lat: newLat,
+            lng: newLng,
+            battery: parseFloat(newBattery.toFixed(1))
+          };
+        })
+      );
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Notifications setup
   useEffect(() => {
     if ("Notification" in window && Notification.permission !== "granted") {
       Notification.requestPermission();
     }
   }, []);
 
-  // Helper Function for Desktop Popup Alert
   const sendPushNotification = (title, body) => {
     if ("Notification" in window && Notification.permission === "granted") {
-      new Notification(title, {
-        body: body,
-        icon: "/favicon.ico",
-      });
+      new Notification(title, { body, icon: "/favicon.ico" });
     }
   };
 
-  // 🔔 2. AUTOMATIC BATTERY MONITOR & ALERT TRIGGER
   useEffect(() => {
     drones.forEach((drone) => {
-      // Low Battery Alert
       if (drone.battery <= settings.autoDockBatteryLimit && drone.status === "In-Flight") {
         sendPushNotification(
           `🚨 CRITICAL LOW BATTERY: ${drone.name}`,
-          `Battery level dropped to ${drone.battery}%. Initiating automatic dock return!`
-        );
-      }
-
-      // Charge Complete Alert
-      if (drone.battery === 100 && drone.status === "Charging") {
-        sendPushNotification(
-          `🔋 CHARGING COMPLETED: ${drone.name}`,
-          `Drone is 100% charged and ready for mission operations!`
+          `Battery level dropped to ${drone.battery}%. Returning to dock!`
         );
       }
     });
   }, [drones, settings.autoDockBatteryLimit]);
 
-  // Handlers
   const handleLogin = (e) => {
     e.preventDefault();
     if (loginForm.email) {
       const extractedName = loginForm.email.split('@')[0];
       const formattedName = extractedName.charAt(0).toUpperCase() + extractedName.slice(1) + ' Operator';
       
-      setUser(prev => ({
-        ...prev,
-        name: formattedName,
-        email: loginForm.email
-      }));
-
+      setUser(prev => ({ ...prev, name: formattedName, email: loginForm.email }));
       setIsAuthenticated(true);
     }
   };
@@ -151,7 +161,6 @@ export default function App() {
     setDrones(drones.map(d => d.id === selectedDrone.id ? { ...d, battery: Math.min(100, Math.max(0, d.battery + delta)) } : d));
   };
 
-  // 1. LOGIN SCREEN RENDER
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -204,11 +213,8 @@ export default function App() {
     );
   }
 
-  // 2. MAIN DASHBOARD RENDER
   return (
     <div className={`min-h-screen flex ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-800'}`}>
-      
-      {/* Sidebar */}
       <aside className={`w-64 border-r p-6 flex flex-col justify-between h-screen sticky top-0 ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'}`}>
         <div className="space-y-8">
           <div className="flex items-center gap-3">
@@ -255,10 +261,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Viewport */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        
-        {/* Header */}
         <header className={`sticky top-0 z-30 border-b px-8 py-4 flex items-center justify-between backdrop-blur-md ${darkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
           <div className="w-96 relative flex items-center">
             <Search className="w-4 h-4 absolute left-3.5 text-slate-400" />
@@ -278,10 +281,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* Content Tabs */}
         <main className="p-8 space-y-8">
-          
-          {/* DASHBOARD TAB */}
           {activeTab === 'dashboard' && selectedDrone.id && (
             <div className="space-y-8">
               <div className="flex items-center justify-between">
@@ -307,16 +307,15 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Drone Overview Details & Telemetry Adjuster */}
               <div className={`p-6 rounded-3xl border space-y-6 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
                 <div className="flex items-center justify-between border-b pb-4 border-slate-800">
                   <div>
                     <h2 className="text-xl font-bold">{selectedDrone.name} ({selectedDrone.id})</h2>
-                    <p className="text-xs text-slate-400">Category: {selectedDrone.category} | Dock Match: {selectedDrone.dockId}</p>
+                    <p className="text-xs text-slate-400">Category: {selectedDrone.category} | Status: <span className="text-emerald-400 font-bold">{selectedDrone.status}</span></p>
                   </div>
 
                   <div className="flex items-center gap-2 bg-slate-800/80 p-2 rounded-xl border border-slate-700">
-                    <span className="text-xs text-slate-400">Test Notification Trigger (-5% / +5%):</span>
+                    <span className="text-xs text-slate-400">Battery Adjust:</span>
                     <button onClick={() => handleUpdateBattery(-5)} className="px-2 py-1 bg-red-600/20 text-red-400 border border-red-500/30 rounded text-xs font-bold hover:bg-red-600 hover:text-white">-5%</button>
                     <button onClick={() => handleUpdateBattery(5)} className="px-2 py-1 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 rounded text-xs font-bold hover:bg-emerald-600 hover:text-white">+5%</button>
                   </div>
@@ -342,11 +341,10 @@ export default function App() {
                 </div>
               </div>
 
-              {/* REAL LIVE GPS MAP */}
               <div className={`p-6 rounded-3xl border space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
                 <div className="flex items-center justify-between">
-                  <h3 className="font-bold flex items-center gap-2"><Navigation className="w-5 h-5 text-blue-500" /> GPS Map Location Tracking</h3>
-                  <span className="text-xs font-mono text-emerald-400">Live Satellite Lock Active</span>
+                  <h3 className="font-bold flex items-center gap-2"><Navigation className="w-5 h-5 text-blue-500 animate-pulse" /> Live Dynamic Satellite GPS Tracking</h3>
+                  <span className="text-xs font-mono text-emerald-400">● LIVE FEED ACTIVE</span>
                 </div>
 
                 <div className="h-96 rounded-2xl overflow-hidden border border-slate-800">
@@ -360,8 +358,8 @@ export default function App() {
                     <Marker position={[selectedDrone.lat, selectedDrone.lng]} icon={customIcon}>
                       <Popup>
                         <strong>{selectedDrone.name} ({selectedDrone.id})</strong><br />
-                        Battery: {selectedDrone.battery}%<br />
-                        Status: {selectedDrone.status}
+                        Live Battery: {selectedDrone.battery}%<br />
+                        Lat: {selectedDrone.lat}, Lng: {selectedDrone.lng}
                       </Popup>
                     </Marker>
 
@@ -379,7 +377,6 @@ export default function App() {
             </div>
           )}
 
-          {/* FLEET TAB */}
           {activeTab === 'fleet' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -401,8 +398,8 @@ export default function App() {
                     </div>
                     <div className="text-xs space-y-1 text-slate-400">
                       <p>Category: {d.category}</p>
-                      <p>Assigned Dock: {d.dockId}</p>
-                      <p>GPS: {d.lat}, {d.lng}</p>
+                      <p>Dock Match: {d.dockId}</p>
+                      <p>Current GPS: {d.lat}, {d.lng}</p>
                     </div>
                     <div className="pt-2 flex items-center justify-between border-t border-slate-800">
                       <span className="text-xs font-bold text-emerald-400">{d.battery}% Battery</span>
@@ -414,7 +411,6 @@ export default function App() {
             </div>
           )}
 
-          {/* DOCKS TAB */}
           {activeTab === 'docks' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
@@ -435,9 +431,9 @@ export default function App() {
                       <p className="text-xs text-slate-400 font-mono">{dock.id}</p>
                     </div>
                     <div className="text-xs space-y-1 text-slate-400">
-                      <p>Power Source: {dock.powerSupply}</p>
+                      <p>Power Supply: {dock.powerSupply}</p>
                       <p>Station Capacity: {dock.capacity}</p>
-                      <p>GPS: {dock.lat}, {dock.lng}</p>
+                      <p>GPS Coordinates: {dock.lat}, {dock.lng}</p>
                     </div>
                   </div>
                 ))}
@@ -445,13 +441,12 @@ export default function App() {
             </div>
           )}
 
-          {/* SETTINGS TAB */}
           {activeTab === 'settings' && (
             <div className="space-y-6 max-w-3xl">
               <h2 className="text-xl font-bold">System Operations & Settings</h2>
 
               <div className={`p-6 rounded-3xl border space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-                <h3 className="font-bold flex items-center gap-2 text-sm text-blue-400"><User className="w-4 h-4" /> Operator Profile Details</h3>
+                <h3 className="font-bold flex items-center gap-2 text-sm text-blue-400"><User className="w-4 h-4" /> Operator Profile</h3>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
                     <label className="text-slate-400">Operator Name</label>
@@ -465,14 +460,14 @@ export default function App() {
               </div>
 
               <div className={`p-6 rounded-3xl border space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-                <h3 className="font-bold flex items-center gap-2 text-sm text-blue-400"><Sliders className="w-4 h-4" /> Autonomous Docking Parameters</h3>
+                <h3 className="font-bold flex items-center gap-2 text-sm text-blue-400"><Sliders className="w-4 h-4" /> Autonomous Parameters</h3>
                 <div className="space-y-4 text-xs">
                   <div>
-                    <label className="text-slate-400">Auto-Dock Trigger Battery Threshold: <strong className="text-blue-400">{settings.autoDockBatteryLimit}%</strong></label>
+                    <label className="text-slate-400">Low Battery Return Limit: <strong className="text-blue-400">{settings.autoDockBatteryLimit}%</strong></label>
                     <input type="range" min="10" max="40" value={settings.autoDockBatteryLimit} onChange={e => setSettings({...settings, autoDockBatteryLimit: Number(e.target.value)})} className="w-full mt-2" />
                   </div>
                   <div>
-                    <label className="text-slate-400">Python Backend API Endpoint URL</label>
+                    <label className="text-slate-400">Python Backend API URL</label>
                     <input type="text" value={settings.pythonApiUrl} onChange={e => setSettings({...settings, pythonApiUrl: e.target.value})} className="w-full mt-1 p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white font-mono" />
                   </div>
                 </div>
@@ -483,28 +478,30 @@ export default function App() {
         </main>
       </div>
 
-      {/* Add Drone Modal */}
       {showAddDroneModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className={`w-full max-w-md p-6 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white'} space-y-4`}>
-            <h3 className="font-bold text-lg">Add New Drone</h3>
+            <h3 className="font-bold text-lg">Add New Drone Target</h3>
             <form onSubmit={handleAddDrone} className="space-y-3">
               <input type="text" placeholder="Drone ID (e.g., DRONE-HYD-99)" required value={newDrone.id} onChange={e => setNewDrone({...newDrone, id: e.target.value})} className="w-full p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
               <input type="text" placeholder="Drone Name" required value={newDrone.name} onChange={e => setNewDrone({...newDrone, name: e.target.value})} className="w-full p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" step="0.0001" placeholder="Latitude" required value={newDrone.lat} onChange={e => setNewDrone({...newDrone, lat: parseFloat(e.target.value)})} className="p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
-                <input type="number" step="0.0001" placeholder="Longitude" required value={newDrone.lng} onChange={e => setNewDrone({...newDrone, lng: parseFloat(e.target.value)})} className="p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
+                <input type="number" step="0.0001" placeholder="Current Lat" required value={newDrone.lat} onChange={e => setNewDrone({...newDrone, lat: parseFloat(e.target.value)})} className="p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
+                <input type="number" step="0.0001" placeholder="Current Lng" required value={newDrone.lng} onChange={e => setNewDrone({...newDrone, lng: parseFloat(e.target.value)})} className="p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" step="0.0001" placeholder="Target Lat" required value={newDrone.targetLat} onChange={e => setNewDrone({...newDrone, targetLat: parseFloat(e.target.value)})} className="p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
+                <input type="number" step="0.0001" placeholder="Target Lng" required value={newDrone.targetLng} onChange={e => setNewDrone({...newDrone, targetLng: parseFloat(e.target.value)})} className="p-2.5 rounded-xl border bg-slate-800 border-slate-700 text-xs text-white" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowAddDroneModal(false)} className="px-4 py-2 rounded-xl text-xs bg-slate-800 text-slate-300">Cancel</button>
-                <button type="submit" className="px-4 py-2 rounded-xl text-xs bg-blue-600 text-white font-bold">Register Drone</button>
+                <button type="submit" className="px-4 py-2 rounded-xl text-xs bg-blue-600 text-white font-bold">Start Live Route</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Add Dock Modal */}
       {showAddDockModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className={`w-full max-w-md p-6 rounded-3xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white'} space-y-4`}>
