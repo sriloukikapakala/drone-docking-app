@@ -30,7 +30,7 @@ function RecenterMap({ lat, lng }) {
 export default function App() {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginForm, setLoginForm] = useState({ email: 'bujji@aerodock.ai', password: '' });
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
   // Main Dashboard States
   const [user, setUser] = useState({ name: 'Bujji Operator', email: 'bujji@aerodock.ai', role: 'Fleet Administrator' });
@@ -149,8 +149,8 @@ export default function App() {
             <div className="inline-flex p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-600/30 mb-2">
               <Cpu className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-wide">AERO-DOCK AI</h1>
-            <p className="text-xs text-slate-400">Autonomous Fleet Management</p>
+            <h1 className="text-2xl font-bold text-white tracking-wide">DOCK AI</h1>
+            <p className="text-xs text-slate-400">Autonomous Dock Management</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -164,7 +164,7 @@ export default function App() {
                   value={loginForm.email} 
                   onChange={e => setLoginForm({...loginForm, email: e.target.value})}
                   className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-xs text-white outline-none focus:border-blue-500" 
-                  placeholder="operator@aerodock.ai"
+                  placeholder="operator@dronedock.ai"
                 />
               </div>
             </div>
