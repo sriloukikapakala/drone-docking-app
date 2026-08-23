@@ -33,7 +33,7 @@ export default function App() {
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
 
   // Main Dashboard States
-  const [user, setUser] = useState({ name: 'Bujji Operator', email: 'bujji@aerodock.ai', role: 'Fleet Administrator' });
+  const [user, setUser] = useState({ name: '', email: '', role: 'Drone Administrator' });
   const [activeTab, setActiveTab] = useState('dashboard');
   const [darkMode, setDarkMode] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -108,7 +108,18 @@ export default function App() {
   // Handlers
   const handleLogin = (e) => {
     e.preventDefault();
-    if (loginForm.email) setIsAuthenticated(true);
+    if (loginForm.email) {
+      const extractedName = loginForm.email.split('@')[0];
+      const formattedName = extractedName.charAt(0).toUpperCase() + extractedName.slice(1) + ' Operator';
+      
+      setUser(prev => ({
+        ...prev,
+        name: formattedName,
+        email: loginForm.email
+      }));
+
+      setIsAuthenticated(true);
+    }
   };
 
   const handleLogout = () => setIsAuthenticated(false);
